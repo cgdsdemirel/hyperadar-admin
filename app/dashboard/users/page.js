@@ -92,44 +92,32 @@ function UserModal({ user, onClose }) {
   );
 }
 
+// ─── Plan badge ───────────────────────────────────────────────────────────────
+
+const PLAN_STYLES = {
+  premium: 'bg-green-100 text-green-700',
+  pro:     'bg-purple-100 text-purple-700',
+  free:    'bg-gray-100 text-gray-600',
+};
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-const COLUMNS = [
-  { key: 'email',   label: 'Email' },
-  {
-    key: 'plan',
-    label: 'Plan',
-    render: (val) => (
-      <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${
-        val === 'premium'
-          ? 'bg-green-100 text-green-700'
-          : 'bg-gray-100 text-gray-600'
-      }`}>
-        {val}
-      </span>
-    ),
-  },
-  { key: 'monthly_tokens',   label: 'Monthly Tokens',   render: (v) => (v ?? 0).toLocaleString() },
-  { key: 'purchased_tokens', label: 'Purchased Tokens', render: (v) => (v ?? 0).toLocaleString() },
-  { key: 'total_queries',    label: 'Queries',          render: (v) => (v ?? 0).toLocaleString() },
-  { key: 'created_at',       label: 'Joined',           render: (v) => new Date(v).toLocaleDateString() },
-];
-
 export default function UsersPage() {
-  const [users,      setUsers]      = useState([]);
-  const [total,      setTotal]      = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [page,       setPage]       = useState(1);
-  const [search,     setSearch]     = useState('');
-  const [plan,       setPlan]       = useState('');
-  const [loading,    setLoading]    = useState(true);
-  const [selected,   setSelected]   = useState(null);
+  const [users,       setUsers]       = useState([]);
+  const [total,       setTotal]       = useState(0);
+  const [totalPages,  setTotalPages]  = useState(1);
+  const [page,        setPage]        = useState(1);
+  const [search,      setSearch]      = useState('');
+  const [planFilter,  setPlanFilter]  = useState('');
+  const [loading,     setLoading]     = useState(true);
+  const [selected,    setSelected]    = useState(null);
+  const [changingPlan, setChangingPlan] = useState({}); // { [userId]: true }
 
   const fetchUsers = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams({ page, limit: 20 });
-    if (search) params.set('search', search);
-    if (plan)   params.set('plan',   plan);
+    if (search)     params.set('search', search);
+    if (planFilter) params.set('plan',   planFilter);
 
     api.get(`/users?${params}`)
       .then((res) => {
@@ -138,9 +126,53 @@ export default function UsersPage() {
         setTotalPages(res.data.total_pages);
       })
       .finally(() => setLoading(false));
-  }, [page, search, plan]);
+  }, [page, search, planFilter]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  async function handlePlanChange(userId, newPlan) {
+    setChangingPlan((prev) => ({ ...prev, [userId]: true }));
+    try {
+      await api.patch(`/users/${userId}`, { plan: newPlan });
+      setUsers((prev) =>
+        prev.map((u) => u.id === userId ? { ...u, plan: newPlan } : u)
+      );
+    } catch (err) {
+      alert(`Failed to update plan: ${err?.response?.data?.error || err.message}`);
+    } finally {
+      setChangingPlan((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  const columns = [
+    { key: 'email', label: 'Email' },
+    {
+      key: 'plan',
+      label: 'Plan',
+      render: (val, row) => (
+        <select
+          value={val}
+          disabled={!!changingPlan[row.id]}
+          onChange={(e) => {
+            e.stopPropagation();
+            handlePlanChange(row.id, e.target.value);
+          }}
+          onClick={(e) => e.stopPropagation()}
+          className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 outline-none cursor-pointer
+            ${PLAN_STYLES[val] || PLAN_STYLES.free}
+            ${changingPlan[row.id] ? 'opacity-50 cursor-wait' : ''}`}
+        >
+          <option value="free">free</option>
+          <option value="premium">premium</option>
+          <option value="pro">pro</option>
+        </select>
+      ),
+    },
+    { key: 'monthly_tokens',   label: 'Monthly Tokens',   render: (v) => (v ?? 0).toLocaleString() },
+    { key: 'purchased_tokens', label: 'Purchased Tokens', render: (v) => (v ?? 0).toLocaleString() },
+    { key: 'total_queries',    label: 'Queries',          render: (v) => (v ?? 0).toLocaleString() },
+    { key: 'created_at',       label: 'Joined',           render: (v) => new Date(v).toLocaleDateString() },
+  ];
 
   return (
     <div className="p-8 space-y-6">
@@ -159,13 +191,14 @@ export default function UsersPage() {
           className="px-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 w-64"
         />
         <select
-          value={plan}
-          onChange={(e) => { setPlan(e.target.value); setPage(1); }}
+          value={planFilter}
+          onChange={(e) => { setPlanFilter(e.target.value); setPage(1); }}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All plans</option>
           <option value="free">Free</option>
           <option value="premium">Premium</option>
+          <option value="pro">Pro</option>
         </select>
       </div>
 
@@ -185,6 +218,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
-// Re-export columns for DataTable (needs to be in scope)
-const columns = COLUMNS;
