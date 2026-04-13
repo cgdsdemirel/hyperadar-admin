@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 
@@ -10,6 +10,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
+
+  // If admin_token_auth is already present the user is authenticated — skip
+  // the login form and go straight to the dashboard.
+  useEffect(() => {
+    if (Cookies.get('admin_token_auth')) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
 
   async function handleSubmit(e) {
     e.preventDefault();
