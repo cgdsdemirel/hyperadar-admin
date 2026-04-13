@@ -96,7 +96,6 @@ function UserModal({ user, onClose }) {
 
 const PLAN_STYLES = {
   premium: 'bg-green-100 text-green-700',
-  pro:     'bg-purple-100 text-purple-700',
   free:    'bg-gray-100 text-gray-600',
 };
 
@@ -164,7 +163,6 @@ export default function UsersPage() {
         >
           <option value="free">free</option>
           <option value="premium">premium</option>
-          <option value="pro">pro</option>
         </select>
       ),
     },
@@ -198,7 +196,6 @@ export default function UsersPage() {
           <option value="">All plans</option>
           <option value="free">Free</option>
           <option value="premium">Premium</option>
-          <option value="pro">Pro</option>
         </select>
       </div>
 
